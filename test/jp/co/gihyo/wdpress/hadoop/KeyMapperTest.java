@@ -26,7 +26,7 @@ public class KeyMapperTest {
         KeyMapper mapper = new KeyMapper();
         OutputCollector<Text, Text> output = mock(OutputCollector.class);
         mapper.map(null, TEST_LINE, output, null);
-        verify(output).collect(new Text("54E8C79987B6F2F3	970916215423"), new Text("970916215423	pregnant"));
+        verify(output).collect(new Text("54E8C79987B6F2F3#970916215423"), new Text("970916215423#pregnant"));
     }
 
 }

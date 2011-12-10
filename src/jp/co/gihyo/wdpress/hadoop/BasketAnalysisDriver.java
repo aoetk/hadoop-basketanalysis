@@ -65,7 +65,7 @@ public class BasketAnalysisDriver extends Configured implements Tool {
         FileInputFormat.addInputPath(secondJobConf, intermediatePath);
         FileOutputFormat.setOutputPath(secondJobConf, outputPath);
 
-        secondJobConf.setMapperClass(IdentityMapper.class);
+        secondJobConf.setMapperClass(ToIntMapper.class);
         secondJobConf.setReducerClass(SumReducer.class);
 
         secondJobConf.setMapOutputKeyClass(Text.class);
@@ -73,6 +73,8 @@ public class BasketAnalysisDriver extends Configured implements Tool {
 
         secondJobConf.setOutputKeyClass(Text.class);
         secondJobConf.setOutputValueClass(IntWritable.class);
+
+        JobClient.runJob(secondJobConf);
 
         return 0;
     }
@@ -93,8 +95,8 @@ class KeyMapper extends MapReduceBase implements Mapper<Object, Text, Text, Text
         String line = value.toString();
         String[] records = line.split("\t");
         if (records.length == 3) {
-            idTimePair.set(records[0] + "\t" + records[1]);
-            timeKeywordPair.set(records[1] + "\t" + records[2]);
+            idTimePair.set(records[0] + "#" + records[1]);
+            timeKeywordPair.set(records[1] + "#" + records[2]);
             output.collect(idTimePair, timeKeywordPair);
         }
     }
@@ -118,12 +120,12 @@ class KeywordPairReducer extends MapReduceBase implements Reducer<Text, Text, Te
 
         for (int i = 0; i < keywordList.size(); i++) {
             String basePair = keywordList.get(i);
-            String[] baseRecords = basePair.split("\t");
+            String[] baseRecords = basePair.split("#");
             long baseTime = Long.parseLong(baseRecords[0]);
 
             for (int j = i; j < keywordList.size(); j++) {
                 String timeAndKeywordPair = keywordList.get(j);
-                String[] records = timeAndKeywordPair.split("\t");
+                String[] records = timeAndKeywordPair.split("#");
                 if (baseRecords[1].equals(records[1])) {
                     continue;
                 }
@@ -131,10 +133,23 @@ class KeywordPairReducer extends MapReduceBase implements Reducer<Text, Text, Te
                 if (diff > WINDOW) {
                     break;
                 }
-                keywordPair.set(baseRecords[1] + "\t" + records[1]);
+                keywordPair.set(baseRecords[1] + "#" + records[1]);
                 output.collect(keywordPair, ONE);
             }
         }
+    }
+
+}
+
+
+class ToIntMapper extends MapReduceBase implements Mapper<Text, Text, Text, IntWritable> {
+
+    private IntWritable count = new IntWritable();
+
+    @Override
+    public void map(Text key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
+        count.set(Integer.parseInt(value.toString()));
+        output.collect(key, count);
     }
 
 }
@@ -143,7 +158,7 @@ class UserIdPartitioner implements Partitioner<Text, Text> {
 
     @Override
     public int getPartition(Text key, Text value, int numPartitions) {
-        String userId = key.toString().split("\t")[0];
+        String userId = key.toString().split("#")[0];
         return (userId.hashCode() & Integer.MAX_VALUE) % numPartitions;
     }
 
@@ -161,8 +176,8 @@ class GroupComparator extends WritableComparator {
 
     @Override
     public int compare(WritableComparable a, WritableComparable b) {
-        String keyA = ((Text) a).toString().split("\t")[0];
-        String keyB = ((Text) b).toString().split("\t")[0];
+        String keyA = ((Text) a).toString().split("#")[0];
+        String keyB = ((Text) b).toString().split("#")[0];
         return keyA.compareTo(keyB);
     }
 
