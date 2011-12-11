@@ -8,6 +8,7 @@ import java.util.Iterator;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.*;
 import org.apache.hadoop.util.Tool;
@@ -53,14 +54,14 @@ public class KeywordCountDriver extends Configured implements Tool {
     }
 
 }
-class KeywordMapper extends MapReduceBase implements Mapper<Object, Text, Text, IntWritable> {
+class KeywordMapper extends MapReduceBase implements Mapper<LongWritable, Text, Text, IntWritable> {
 
     private static final IntWritable ONE = new IntWritable(1);
 
     private Text keyword = new Text();
 
     @Override
-    public void map(Object key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
+    public void map(LongWritable key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
         String line = value.toString();
         String[] records = line.split("\t");
         if (records.length == 3) {
