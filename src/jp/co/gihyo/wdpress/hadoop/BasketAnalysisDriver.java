@@ -171,6 +171,10 @@ class GroupComparator extends WritableComparator {
 class KeywordPairMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
     @Override
     protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-        super.map(key, value, context);
+        String line = value.toString();
+        String[] records = line.split("\t");
+        if (records.length == 2) {
+            context.write(new Text(records[0]), new IntWritable(Integer.parseInt(records[1])));
+        }
     }
 }
