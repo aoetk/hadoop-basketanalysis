@@ -123,7 +123,7 @@ class KeywordPairReducer extends MapReduceBase implements Reducer<Text, Text, Te
             String[] baseRecords = basePair.split("#");
             long baseTime = Long.parseLong(baseRecords[0]);
 
-            for (int j = i; j < keywordList.size(); j++) {
+            for (int j = i + 1; j < keywordList.size(); j++) {
                 String timeAndKeywordPair = keywordList.get(j);
                 String[] records = timeAndKeywordPair.split("#");
                 if (baseRecords[1].equals(records[1])) {
