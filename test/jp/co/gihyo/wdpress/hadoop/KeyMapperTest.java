@@ -5,7 +5,7 @@ package jp.co.gihyo.wdpress.hadoop;
 
 import java.io.IOException;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.OutputCollector;
+import org.apache.hadoop.mapreduce.Mapper;
 import org.junit.Test;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -22,11 +22,11 @@ public class KeyMapperTest {
     }
 
     @Test
-    public void testMap() throws IOException {
+    public void testMap() throws IOException, InterruptedException {
         KeyMapper mapper = new KeyMapper();
-        OutputCollector<Text, Text> output = mock(OutputCollector.class);
-        mapper.map(null, TEST_LINE, output, null);
-        verify(output).collect(new Text("54E8C79987B6F2F3#970916215423"), new Text("970916215423#pregnant"));
+        Mapper.Context context = mock(Mapper.Context.class);
+        mapper.map(null, TEST_LINE, context);
+        verify(context).write(new Text("54E8C79987B6F2F3#970916215423"), new Text("970916215423#pregnant"));
     }
 
 }

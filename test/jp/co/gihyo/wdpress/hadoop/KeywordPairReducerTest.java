@@ -9,6 +9,7 @@ import java.util.List;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.OutputCollector;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.junit.Before;
 import org.junit.Test;
 import static org.mockito.Mockito.*;
@@ -35,12 +36,12 @@ public class KeywordPairReducerTest {
     }
 
     @Test
-    public void testReduce() throws IOException {
+    public void testReduce() throws IOException, InterruptedException {
         List<Text> inputList = Arrays.asList(INPUTS);
         KeywordPairReducer reducer = new KeywordPairReducer();
-        OutputCollector<Text, IntWritable> output = mock(OutputCollector.class);
-        reducer.reduce(new Text("BED75271605EBD0C#970916001949"), inputList.iterator(), output, null);
-        verify(output, times(1)).collect(new Text("yahoo search#yahoo chat"), new IntWritable(1));
+        Reducer.Context context = mock(Reducer.Context.class);
+        reducer.reduce(new Text("BED75271605EBD0C#970916001949"), inputList, context);
+        verify(context).write(new Text("yahoo search#yahoo chat"), new IntWritable(1));
     }
 
 }

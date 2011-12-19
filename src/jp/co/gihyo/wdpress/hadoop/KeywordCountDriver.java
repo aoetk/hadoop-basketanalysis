@@ -26,7 +26,7 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
         if (args.length != 2) {
             // ②
             System.out.printf("Usage: %s [generic options] <indir> <outdir>\n", getClass().getSimpleName());
-            System.exit(-1);
+            return -1;
         }
 
         Configuration conf = new Configuration();
@@ -40,7 +40,7 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
 
         // ⑤
         job.setMapperClass(KeywordMapper.class);
-        job.setReducerClass(KeywordCountReducer.class);
+        job.setReducerClass(SumReducer.class);
 
         // ⑥
         job.setMapOutputKeyClass(Text.class);
@@ -51,7 +51,7 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
         job.setOutputValueClass(IntWritable.class);
 
         // ⑧
-        return job.waitForCompletion(true) ? 0 : 1;
+        return job.waitForCompletion(true) ? 0 : -1;
     }
 
     public static void main(String[] args) throws Exception {
@@ -73,7 +73,7 @@ class KeywordMapper extends Mapper<LongWritable, Text, Text, IntWritable> { // �
     }
 }
 
-class KeywordCountReducer extends Reducer<Text, IntWritable, Text, IntWritable> { // ①
+class SumReducer extends Reducer<Text, IntWritable, Text, IntWritable> { // ①
     @Override
     protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
         int count = 0;

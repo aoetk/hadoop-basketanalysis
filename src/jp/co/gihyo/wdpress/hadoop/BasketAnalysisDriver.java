@@ -7,14 +7,20 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableComparator;
-import org.apache.hadoop.mapred.*;
-import org.apache.hadoop.mapred.lib.IdentityMapper;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Partitioner;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
@@ -29,54 +35,54 @@ public class BasketAnalysisDriver extends Configured implements Tool {
     public int run(String[] args) throws Exception {
         if (args.length != 3) {
             System.out.printf("Usage: %s [generic options] <indir> <intermediate outdir> <outdir>\n", getClass().getSimpleName());
-            ToolRunner.printGenericCommandUsage(System.out);
-            System.exit(-1);
+            return -1;
         }
         Path inputPath = new Path(args[0]);
         Path intermediatePath = new Path(args[1]);
         Path outputPath = new Path(args[2]);
 
         // 1段目のジョブ
-        JobConf firstJobConf = new JobConf(getConf(), BasketAnalysisDriver.class);
-        firstJobConf.setJobName("BuildCollocation");
+        Configuration firstConf = new Configuration();
+        Job firstJob = new Job(firstConf);
+        firstJob.setJobName("BuildCollocation");
 
-        FileInputFormat.addInputPath(firstJobConf, inputPath);
-        FileOutputFormat.setOutputPath(firstJobConf, intermediatePath);
+        FileInputFormat.addInputPath(firstJob, inputPath);
+        FileOutputFormat.setOutputPath(firstJob, intermediatePath);
 
-        firstJobConf.setMapperClass(KeyMapper.class);
-        firstJobConf.setReducerClass(KeywordPairReducer.class);
+        firstJob.setMapperClass(KeyMapper.class);
+        firstJob.setReducerClass(KeywordPairReducer.class);
 
-        firstJobConf.setMapOutputKeyClass(Text.class);
-        firstJobConf.setMapOutputValueClass(Text.class);
+        firstJob.setMapOutputKeyClass(Text.class);
+        firstJob.setMapOutputValueClass(Text.class);
 
-        firstJobConf.setPartitionerClass(UserIdPartitioner.class);
-        firstJobConf.setOutputValueGroupingComparator(GroupComparator.class);
+        firstJob.setPartitionerClass(UserIdPartitioner.class);
+        firstJob.setGroupingComparatorClass(GroupComparator.class);
 
-        firstJobConf.setOutputKeyClass(Text.class);
-        firstJobConf.setOutputValueClass(IntWritable.class);
+        firstJob.setOutputKeyClass(Text.class);
+        firstJob.setOutputValueClass(IntWritable.class);
 
-        JobClient.runJob(firstJobConf);
+        boolean ret = firstJob.waitForCompletion(true);
+        if (!ret) {
+            return -1;
+        }
 
         // 2段目のジョブ
-        JobConf secondJobConf = new JobConf(getConf(), BasketAnalysisDriver.class);
-        secondJobConf.setJobName("CountCollocation");
+        Configuration secondConf = new Configuration();
+        Job secondJob = new Job(secondConf, "CountCollocation");
 
-        secondJobConf.setInputFormat(KeyValueTextInputFormat.class);
-        FileInputFormat.addInputPath(secondJobConf, intermediatePath);
-        FileOutputFormat.setOutputPath(secondJobConf, outputPath);
+        FileInputFormat.addInputPath(secondJob, intermediatePath);
+        FileOutputFormat.setOutputPath(secondJob, outputPath);
 
-        secondJobConf.setMapperClass(ToIntMapper.class);
-//        secondJobConf.setReducerClass(SumReducer.class);
+        secondJob.setMapperClass(KeywordPairMapper.class);
+        secondJob.setReducerClass(SumReducer.class);
 
-        secondJobConf.setMapOutputKeyClass(Text.class);
-        secondJobConf.setMapOutputValueClass(IntWritable.class);
+        secondJob.setMapOutputKeyClass(Text.class);
+        secondJob.setMapOutputValueClass(IntWritable.class);
 
-        secondJobConf.setOutputKeyClass(Text.class);
-        secondJobConf.setOutputValueClass(IntWritable.class);
+        secondJob.setOutputKeyClass(Text.class);
+        secondJob.setOutputValueClass(IntWritable.class);
 
-        JobClient.runJob(secondJobConf);
-
-        return 0;
+        return secondJob.waitForCompletion(true) ? 0 : -1;
     }
 
     public static void main(String[] args) throws Exception {
@@ -85,25 +91,23 @@ public class BasketAnalysisDriver extends Configured implements Tool {
     }
 
 }
-class KeyMapper extends MapReduceBase implements Mapper<Object, Text, Text, Text> {
 
+class KeyMapper extends Mapper<LongWritable, Text, Text, Text> {
     private Text idTimePair = new Text();
     private Text timeKeywordPair = new Text();
-
     @Override
-    public void map(Object key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
         String line = value.toString();
         String[] records = line.split("\t");
         if (records.length == 3) {
             idTimePair.set(records[0] + "#" + records[1]);
             timeKeywordPair.set(records[1] + "#" + records[2]);
-            output.collect(idTimePair, timeKeywordPair);
+            context.write(idTimePair, timeKeywordPair);
         }
     }
-
 }
 
-class KeywordPairReducer extends MapReduceBase implements Reducer<Text, Text, Text, IntWritable> {
+class KeywordPairReducer extends Reducer<Text, Text, Text, IntWritable> {
 
     private static final long WINDOW = 120L;
 
@@ -112,10 +116,10 @@ class KeywordPairReducer extends MapReduceBase implements Reducer<Text, Text, Te
     private Text keywordPair = new Text();
 
     @Override
-    public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
+    protected void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
         List<String> keywordList = new ArrayList<String>();
-        while (values.hasNext()) {
-            keywordList.add(values.next().toString());
+        for (Text value : values) {
+            keywordList.add(value.toString());
         }
 
         for (int i = 0; i < keywordList.size(); i++) {
@@ -134,38 +138,19 @@ class KeywordPairReducer extends MapReduceBase implements Reducer<Text, Text, Te
                     break;
                 }
                 keywordPair.set(baseRecords[1] + "#" + records[1]);
-                output.collect(keywordPair, ONE);
+                context.write(keywordPair, ONE);
             }
         }
     }
 
 }
 
-
-class ToIntMapper extends MapReduceBase implements Mapper<Text, Text, Text, IntWritable> {
-
-    private IntWritable count = new IntWritable();
-
-    @Override
-    public void map(Text key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
-        count.set(Integer.parseInt(value.toString()));
-        output.collect(key, count);
-    }
-
-}
-
-class UserIdPartitioner implements Partitioner<Text, Text> {
-
+class UserIdPartitioner extends Partitioner<Text, Text> {
     @Override
     public int getPartition(Text key, Text value, int numPartitions) {
         String userId = key.toString().split("#")[0];
         return (userId.hashCode() & Integer.MAX_VALUE) % numPartitions;
     }
-
-    @Override
-    public void configure(JobConf job) {
-    }
-
 }
 
 class GroupComparator extends WritableComparator {
@@ -181,4 +166,11 @@ class GroupComparator extends WritableComparator {
         return keyA.compareTo(keyB);
     }
 
+}
+
+class KeywordPairMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+    @Override
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+        super.map(key, value, context);
+    }
 }
