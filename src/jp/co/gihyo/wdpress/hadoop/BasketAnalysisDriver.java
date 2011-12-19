@@ -5,16 +5,11 @@ package jp.co.gihyo.wdpress.hadoop;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.WritableComparable;
-import org.apache.hadoop.io.WritableComparator;
+import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
@@ -41,7 +36,7 @@ public class BasketAnalysisDriver extends Configured implements Tool {
         Path intermediatePath = new Path(args[1]);
         Path outputPath = new Path(args[2]);
 
-        // 1段目のジョブ
+        // ②1段目のジョブ
         Configuration firstConf = new Configuration();
         Job firstJob = new Job(firstConf);
         firstJob.setJobName("BuildCollocation");
@@ -55,6 +50,7 @@ public class BasketAnalysisDriver extends Configured implements Tool {
         firstJob.setMapOutputKeyClass(Text.class);
         firstJob.setMapOutputValueClass(Text.class);
 
+        // ③
         firstJob.setPartitionerClass(UserIdPartitioner.class);
         firstJob.setGroupingComparatorClass(GroupComparator.class);
 
@@ -62,11 +58,12 @@ public class BasketAnalysisDriver extends Configured implements Tool {
         firstJob.setOutputValueClass(IntWritable.class);
 
         boolean ret = firstJob.waitForCompletion(true);
+        // ④
         if (!ret) {
             return -1;
         }
 
-        // 2段目のジョブ
+        // ⑤2段目のジョブ
         Configuration secondConf = new Configuration();
         Job secondJob = new Job(secondConf, "CountCollocation");
 
