@@ -4,13 +4,18 @@
 package jp.co.gihyo.wdpress.hadoop;
 
 import java.io.IOException;
-import java.util.Iterator;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Reducer.Context;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
@@ -21,32 +26,32 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
         if (args.length != 2) {
             // ②
             System.out.printf("Usage: %s [generic options] <indir> <outdir>\n", getClass().getSimpleName());
-            ToolRunner.printGenericCommandUsage(System.out);
             System.exit(-1);
         }
 
-        JobConf jobConf = new JobConf(getConf(), KeywordCountDriver.class); // ③
-        jobConf.setJobName("KeywordCount");
+        Configuration conf = new Configuration();
+        Job job = new Job(conf);
+        job.setJarByClass(KeywordCountDriver.class);
+        job.setJobName("KeywordCount");
 
         // ④
-        FileInputFormat.addInputPath(jobConf, new Path(args[0]));
-        FileOutputFormat.setOutputPath(jobConf, new Path(args[1]));
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
         // ⑤
-        jobConf.setMapperClass(KeywordMapper.class);
-        jobConf.setReducerClass(SumReducer.class);
+        job.setMapperClass(KeywordMapper.class);
+        job.setReducerClass(KeywordCountReducer.class);
 
         // ⑥
-        jobConf.setMapOutputKeyClass(Text.class);
-        jobConf.setMapOutputValueClass(IntWritable.class);
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(IntWritable.class);
 
         // ⑦
-        jobConf.setOutputKeyClass(Text.class);
-        jobConf.setOutputValueClass(IntWritable.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
 
         // ⑧
-        JobClient.runJob(jobConf);
-        return 0;
+        return job.waitForCompletion(true) ? 0 : 1;
     }
 
     public static void main(String[] args) throws Exception {
@@ -56,37 +61,26 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
     }
 
 }
-class KeywordMapper extends MapReduceBase implements Mapper<LongWritable, Text, Text, IntWritable> { // ①
 
-    private static final IntWritable ONE = new IntWritable(1);
-
-    private Text keyword = new Text();
-
+class KeywordMapper extends Mapper<LongWritable, Text, Text, IntWritable> { // ①
     @Override
-    public void map(LongWritable key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
         String line = value.toString(); // ②
         String[] records = line.split("\t"); // ③
         if (records.length == 3) {
-            keyword.set(records[2]);
-            output.collect(keyword, ONE); // ④
+            context.write(new Text(records[2]), new IntWritable(1)); // ④
         }
     }
-
 }
 
-class SumReducer extends MapReduceBase implements Reducer<Text, IntWritable, Text, IntWritable> { // ①
-
-    private IntWritable keywordCount = new IntWritable();
-
+class KeywordCountReducer extends Reducer<Text, IntWritable, Text, IntWritable> { // ①
     @Override
-    public void reduce(Text key, Iterator<IntWritable> values,
-            OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
+    protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
         int count = 0;
-        while (values.hasNext()) {
-            count += values.next().get(); // ②
+        for (IntWritable value : values) {
+            count += value.get(); // ②
         }
-        keywordCount.set(count);
-        output.collect(key, keywordCount); // ③
+        context.write(key, new IntWritable(count));
     }
 
 }

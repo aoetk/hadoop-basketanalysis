@@ -66,7 +66,7 @@ public class BasketAnalysisDriver extends Configured implements Tool {
         FileOutputFormat.setOutputPath(secondJobConf, outputPath);
 
         secondJobConf.setMapperClass(ToIntMapper.class);
-        secondJobConf.setReducerClass(SumReducer.class);
+//        secondJobConf.setReducerClass(SumReducer.class);
 
         secondJobConf.setMapOutputKeyClass(Text.class);
         secondJobConf.setMapOutputValueClass(IntWritable.class);

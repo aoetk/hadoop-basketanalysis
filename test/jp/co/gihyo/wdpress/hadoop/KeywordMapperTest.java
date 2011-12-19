@@ -6,8 +6,7 @@ package jp.co.gihyo.wdpress.hadoop;
 import java.io.IOException;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
+import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.junit.Test;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -24,10 +23,10 @@ public class KeywordMapperTest {
     }
 
     @Test
-    public void testMap() throws IOException {
-        Mapper mapper = new KeywordMapper();
-        OutputCollector<Text, IntWritable> output = mock(OutputCollector.class);
-        mapper.map(null, TEST_LINE, output, null);
-        verify(output).collect(new Text("pregnant"), new IntWritable(1));
+    public void testMap() throws IOException, InterruptedException {
+        KeywordMapper mapper = new KeywordMapper();
+        Context context = mock(Context.class);
+        mapper.map(null, TEST_LINE, context);
+        verify(context).write(new Text("pregnant"), new IntWritable(1));
     }
 }
