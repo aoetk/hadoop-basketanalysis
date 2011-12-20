@@ -16,7 +16,6 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
@@ -29,9 +28,6 @@ public class BasketAnalysisDriver extends Configured implements Tool {
 
     @Override
     public int run(String[] args) throws Exception {
-        Configuration conf = new Configuration();
-        GenericOptionsParser parser = new GenericOptionsParser(conf, args);
-        args = parser.getRemainingArgs();
         if (args.length != 3) {
             System.out.printf("Usage: %s [generic options] <indir> <intermediate outdir> <outdir>\n", getClass().getSimpleName());
             return -1;
@@ -39,6 +35,8 @@ public class BasketAnalysisDriver extends Configured implements Tool {
         Path inputPath = new Path(args[0]);
         Path intermediatePath = new Path(args[1]);
         Path outputPath = new Path(args[2]);
+
+        Configuration conf = getConf();
 
         // ②1段目のジョブ
         Job firstJob = new Job(conf, "BuildCollocation");
