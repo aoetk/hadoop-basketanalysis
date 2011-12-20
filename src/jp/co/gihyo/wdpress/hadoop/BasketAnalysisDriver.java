@@ -90,16 +90,12 @@ public class BasketAnalysisDriver extends Configured implements Tool {
 }
 
 class KeyMapper extends Mapper<LongWritable, Text, Text, Text> {
-    private Text idTimePair = new Text();
-    private Text timeKeywordPair = new Text();
     @Override
     protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
         String line = value.toString();
         String[] records = line.split("\t");
         if (records.length == 3) {
-            idTimePair.set(records[0] + "#" + records[1]);
-            timeKeywordPair.set(records[1] + "#" + records[2]);
-            context.write(idTimePair, timeKeywordPair);
+            context.write(new Text(records[0] + "#" + records[1]), new Text(records[1] + "#" + records[2]));
         }
     }
 }
@@ -107,10 +103,6 @@ class KeyMapper extends Mapper<LongWritable, Text, Text, Text> {
 class KeywordPairReducer extends Reducer<Text, Text, Text, IntWritable> {
 
     private static final long WINDOW = 120L;
-
-    private static final IntWritable ONE = new IntWritable(1);
-
-    private Text keywordPair = new Text();
 
     @Override
     protected void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
@@ -134,8 +126,7 @@ class KeywordPairReducer extends Reducer<Text, Text, Text, IntWritable> {
                 if (diff > WINDOW) {
                     break;
                 }
-                keywordPair.set(baseRecords[1] + "#" + records[1]);
-                context.write(keywordPair, ONE);
+                context.write(new Text(baseRecords[1] + "#" + records[1]), new IntWritable(1));
             }
         }
     }
