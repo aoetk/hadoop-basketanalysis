@@ -16,6 +16,7 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
@@ -28,6 +29,9 @@ public class BasketAnalysisDriver extends Configured implements Tool {
 
     @Override
     public int run(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        GenericOptionsParser parser = new GenericOptionsParser(conf, args);
+        args = parser.getRemainingArgs();
         if (args.length != 3) {
             System.out.printf("Usage: %s [generic options] <indir> <intermediate outdir> <outdir>\n", getClass().getSimpleName());
             return -1;
@@ -37,9 +41,7 @@ public class BasketAnalysisDriver extends Configured implements Tool {
         Path outputPath = new Path(args[2]);
 
         // ②1段目のジョブ
-        Configuration firstConf = new Configuration();
-        Job firstJob = new Job(firstConf);
-        firstJob.setJobName("BuildCollocation");
+        Job firstJob = new Job(conf, "BuildCollocation");
 
         FileInputFormat.addInputPath(firstJob, inputPath);
         FileOutputFormat.setOutputPath(firstJob, intermediatePath);
@@ -64,8 +66,7 @@ public class BasketAnalysisDriver extends Configured implements Tool {
         }
 
         // ⑤2段目のジョブ
-        Configuration secondConf = new Configuration();
-        Job secondJob = new Job(secondConf, "CountCollocation");
+        Job secondJob = new Job(conf, "CountCollocation");
 
         FileInputFormat.addInputPath(secondJob, intermediatePath);
         FileOutputFormat.setOutputPath(secondJob, outputPath);
