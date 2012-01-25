@@ -40,6 +40,7 @@ public class BasketAnalysisDriver extends Configured implements Tool {
 
         // ②1段目のジョブ
         Job firstJob = new Job(conf, "BuildCollocation");
+        firstJob.setJarByClass(BasketAnalysisDriver.class);
 
         FileInputFormat.addInputPath(firstJob, inputPath);
         FileOutputFormat.setOutputPath(firstJob, intermediatePath);
@@ -65,6 +66,7 @@ public class BasketAnalysisDriver extends Configured implements Tool {
 
         // ⑤2段目のジョブ
         Job secondJob = new Job(conf, "CountCollocation");
+        secondJob.setJarByClass(BasketAnalysisDriver.class);
 
         FileInputFormat.addInputPath(secondJob, intermediatePath);
         FileOutputFormat.setOutputPath(secondJob, outputPath);
