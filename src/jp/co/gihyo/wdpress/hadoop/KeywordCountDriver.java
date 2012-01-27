@@ -9,6 +9,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
@@ -64,6 +65,7 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
         secondJob.setReducerClass(OutputReducer.class);
 
         secondJob.setMapOutputKeyClass(IntWritable.class);
+        secondJob.setPartitionerClass(CountPartitioner.class);
         secondJob.setMapOutputValueClass(Text.class);
         secondJob.setSortComparatorClass(InverseComparator.class);
 
@@ -131,5 +133,15 @@ class InverseComparator extends WritableComparator {
     @Override
     public int compare(WritableComparable a, WritableComparable b) {
         return - super.compare(a, b);
+    }
+}
+
+class CountPartitioner extends Partitioner<IntWritable, Text> {
+    @Override
+    public int getPartition(IntWritable key, Text value, int numPartitions) {
+        if (numPartitions > 1 && key.get() > 20) {
+            return 1;
+        }
+        return 0;
     }
 }
