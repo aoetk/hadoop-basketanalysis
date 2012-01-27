@@ -6,9 +6,7 @@ package jp.co.gihyo.wdpress.hadoop;
 import java.io.IOException;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -22,18 +20,21 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
 
     @Override
     public int run(String[] args) throws Exception {
-        if (args.length != 2) {
+        if (args.length != 3) {
             // ③
-            System.out.printf("Usage: %s [generic options] <indir> <outdir>\n", getClass().getSimpleName());
+            System.out.printf("Usage: %s [generic options] <indir> <intermediate outdir> <outdir>\n", getClass().getSimpleName());
             return -1;
         }
+        Path inputPath = new Path(args[0]);
+        Path intermediatePath = new Path(args[1]);
+        Path outputPath = new Path(args[2]);
 
         Job job = new Job(getConf(), "KeywordCount"); // ②
         job.setJarByClass(KeywordCountDriver.class);
 
         // ④
-        FileInputFormat.addInputPath(job, new Path(args[0]));
-        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        FileInputFormat.addInputPath(job, inputPath);
+        FileOutputFormat.setOutputPath(job, intermediatePath);
 
         // ⑤
         job.setMapperClass(KeywordMapper.class);
@@ -48,7 +49,28 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
         job.setOutputValueClass(IntWritable.class);
 
         // ⑧
-        return job.waitForCompletion(true) ? 0 : -1;
+        boolean ret = job.waitForCompletion(true);
+        if (!ret) {
+            return -1;
+        }
+
+        Job secondJob = new Job(getConf(), "Sort");
+        secondJob.setJarByClass(KeywordCountDriver.class);
+
+        FileInputFormat.addInputPath(secondJob, intermediatePath);
+        FileOutputFormat.setOutputPath(secondJob, outputPath);
+
+        secondJob.setMapperClass(CountMapper.class);
+        secondJob.setReducerClass(OutputReducer.class);
+
+        secondJob.setMapOutputKeyClass(IntWritable.class);
+        secondJob.setMapOutputValueClass(Text.class);
+        secondJob.setSortComparatorClass(InverseComparator.class);
+
+        secondJob.setOutputKeyClass(Text.class);
+        secondJob.setOutputValueClass(IntWritable.class);
+
+        return secondJob.waitForCompletion(true) ? 0 : -1;
     }
 
     public static void main(String[] args) throws Exception {
@@ -79,5 +101,35 @@ class SumReducer extends Reducer<Text, IntWritable, Text, IntWritable> { // ①
         }
         context.write(key, new IntWritable(count));
     }
+}
 
+class CountMapper extends Mapper<LongWritable, Text, IntWritable, Text> {
+    @Override
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+        String line = value.toString();
+        String[] records = line.split("\t");
+        if (records.length == 2) {
+            context.write(new IntWritable(Integer.parseInt(records[1])), new Text(records[0]));
+        }
+    }
+}
+
+class OutputReducer extends Reducer<IntWritable, Text, Text, IntWritable> {
+    @Override
+    protected void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+        for (Text value : values) {
+            context.write(value, key);
+        }
+    }
+}
+
+class InverseComparator extends WritableComparator {
+    protected InverseComparator() {
+        super(IntWritable.class, true);
+    }
+
+    @Override
+    public int compare(WritableComparable a, WritableComparable b) {
+        return - super.compare(a, b);
+    }
 }
