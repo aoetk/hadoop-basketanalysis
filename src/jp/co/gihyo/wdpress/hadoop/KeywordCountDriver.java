@@ -109,9 +109,9 @@ class CountMapper extends Mapper<LongWritable, Text, IntWritable, Text> {
     @Override
     protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
         String line = value.toString();
-        String[] records = line.split("\t");
+        String[] records = line.split("\t"); // ①
         if (records.length == 2) {
-            context.write(new IntWritable(Integer.parseInt(records[1])), new Text(records[0]));
+            context.write(new IntWritable(Integer.parseInt(records[1])), new Text(records[0])); // ②
         }
     }
 }
@@ -136,9 +136,9 @@ class InverseComparator extends WritableComparator {
     }
 }
 
-class CountPartitioner extends Partitioner<IntWritable, Text> {
+class CountPartitioner extends Partitioner<IntWritable, Text> { // ①
     @Override
-    public int getPartition(IntWritable key, Text value, int numPartitions) {
+    public int getPartition(IntWritable key, Text value, int numPartitions) { // ②
         if (numPartitions > 1 && key.get() > 20) {
             return 1;
         }
