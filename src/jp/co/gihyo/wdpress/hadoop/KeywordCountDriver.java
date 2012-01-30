@@ -21,8 +21,11 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
 
     @Override
     public int run(String[] args) throws Exception {
+/*        if (args.length != 2) {
+            System.out.printf("Usage: %s [generic options] <indir> <outdir>\n", getClass().getSimpleName());
+            return -1;
+        }*/
         if (args.length != 3) {
-            // ③
             System.out.printf("Usage: %s [generic options] <indir> <intermediate outdir> <outdir>\n", getClass().getSimpleName());
             return -1;
         }
@@ -50,6 +53,7 @@ public class KeywordCountDriver extends Configured implements Tool { // ①
         job.setOutputValueClass(IntWritable.class);
 
         // ⑧
+//        return job.waitForCompletion(true) ? 0 : -1;
         boolean ret = job.waitForCompletion(true);
         if (!ret) {
             return -1;
